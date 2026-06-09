@@ -1,5 +1,53 @@
+# ===== CREDENCIAIS E SEGREDOS — NUNCA subir =====
 .env
-venv/
-__pycache__/
-demandas_logistica.db
+.env.*
+*.env
+secrets/
+credentials/
+
+# ===== BANCO DE DADOS LOCAL =====
+*.db
+*.sqlite
+*.sqlite3
+
+# ===== UPLOADS DE USUÁRIOS =====
 uploads/
+
+# ===== PYTHON =====
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# ===== AMBIENTES VIRTUAIS =====
+venv/
+.venv/
+env/
+.env_backup
+
+# ===== LOGS =====
+*.log
+logs/
+
+# ===== SISTEMA OPERACIONAL =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== EDITORES =====
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ===== RAILWAY / DEPLOY =====
+.railway/
+
+# ===== ARQUIVOS TEMPORÁRIOS =====
+*.tmp
+*.bak
+Novo Documento de Texto.txt
