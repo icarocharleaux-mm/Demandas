@@ -1,37 +1,95 @@
+import time
 import streamlit as st
 from database.conexao import criar_banco, SessionLocal, Demanda
-from utils.tema import aplicar_tema
+from database.operacoes_crud import verificar_login
+from utils.tema import aplicar_tema, logout_sidebar
 
-# 1. Configuração Global do Streamlit
 st.set_page_config(page_title="Central Logística | Dias+", page_icon="🚛", layout="centered")
 aplicar_tema()
-
-# Garante que as tabelas existem
 criar_banco()
 
-# ==========================================
-# ACESSO LIBERADO — APROVAÇÃO PENDENTE
-# Login desativado temporariamente até aprovação da diretoria.
-# Reativar: restaurar bloco de login e remover as 4 linhas abaixo.
-# ==========================================
-if "usuario_logado" not in st.session_state:
-    st.session_state.usuario_logado = {
-        "id": 0,
-        "nome": "Acesso Demo",
-        "email": "",
-        "filial_base": "Praia Grande",
-        "nivel_acesso": "Gestor",
-    }
+_MAX_TENTATIVAS   = 5
+_BLOQUEIO_SEGUNDOS = 300  # 5 min
 
+if "login_tentativas"   not in st.session_state: st.session_state.login_tentativas   = 0
+if "login_bloqueado_ate" not in st.session_state: st.session_state.login_bloqueado_ate = 0.0
+
+# ══════════════════════════════════════════════════════════
+# GATE DE LOGIN
+# ══════════════════════════════════════════════════════════
+if "usuario_logado" not in st.session_state:
+
+    st.markdown(
+        """
+        <div style="text-align:center; padding:2.5rem 0 1.5rem;">
+            <div style="font-family:'Barlow Condensed',sans-serif; font-size:3rem;
+                        font-weight:900; color:#FFFFFF; letter-spacing:0.04em; line-height:1;">
+                DIAS<span style="color:#2DC5B4;">+</span>
+            </div>
+            <div style="color:rgba(255,255,255,0.45); font-size:0.8rem; text-transform:uppercase;
+                         letter-spacing:0.12em; margin-top:0.4rem;">
+                Central de Demandas
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    agora = time.time()
+    bloqueado = agora < st.session_state.login_bloqueado_ate
+
+    if bloqueado:
+        restante = int(st.session_state.login_bloqueado_ate - agora)
+        st.error(
+            f"🔒 Muitas tentativas de login. Aguarde **{restante}s** antes de tentar novamente."
+        )
+    else:
+        with st.form("form_login"):
+            email = st.text_input("E-mail corporativo", placeholder="seu.email@empresa.com.br")
+            senha = st.text_input("Senha", type="password")
+            btn_login = st.form_submit_button("Entrar", use_container_width=True, type="primary")
+
+        if btn_login:
+            if not email.strip() or not senha:
+                st.warning("Preencha e-mail e senha.")
+            else:
+                db = SessionLocal()
+                try:
+                    usuario_db = verificar_login(db, email, senha)
+                finally:
+                    db.close()
+
+                if usuario_db:
+                    st.session_state.login_tentativas   = 0
+                    st.session_state.login_bloqueado_ate = 0.0
+                    st.session_state.usuario_logado = {
+                        "id":           usuario_db.id,
+                        "nome":         usuario_db.nome,
+                        "email":        usuario_db.email,
+                        "filial_base":  usuario_db.filial_base,
+                        "nivel_acesso": usuario_db.nivel_acesso,
+                    }
+                    st.rerun()
+                else:
+                    st.session_state.login_tentativas += 1
+                    restantes = _MAX_TENTATIVAS - st.session_state.login_tentativas
+                    if st.session_state.login_tentativas >= _MAX_TENTATIVAS:
+                        st.session_state.login_bloqueado_ate = time.time() + _BLOQUEIO_SEGUNDOS
+                        st.error("🔒 Limite de tentativas atingido. Acesso bloqueado por 5 minutos.")
+                    else:
+                        st.error(f"E-mail ou senha incorretos. ({restantes} tentativa(s) restante(s))")
+
+    st.stop()
+
+# ══════════════════════════════════════════════════════════
+# HOME — usuário autenticado
+# ══════════════════════════════════════════════════════════
+logout_sidebar()
 usuario = st.session_state.usuario_logado
 
 
-# ============================================================
-# BANNER DE PENDÊNCIAS — consultado a cada carregamento da home
-# ============================================================
 @st.cache_data(ttl=60)
 def _contar_tickets_novos(filial: str, nivel_acesso: str) -> int:
-    """Retorna quantos tickets estão com status 'Novo' para a filial do usuário."""
     db = SessionLocal()
     try:
         q = db.query(Demanda).filter(Demanda.status == "Novo")
@@ -45,7 +103,11 @@ def _contar_tickets_novos(filial: str, nivel_acesso: str) -> int:
 _total_novos = _contar_tickets_novos(usuario["filial_base"], usuario["nivel_acesso"])
 
 if _total_novos > 0:
-    _label_filial = "em todas as filiais" if usuario["nivel_acesso"] in ("Gestor", "Admin") else f"em {usuario['filial_base']}"
+    _label_filial = (
+        "em todas as filiais"
+        if usuario["nivel_acesso"] in ("Gestor", "Admin")
+        else f"em {usuario['filial_base']}"
+    )
     st.markdown(
         f"""
         <div style="display:flex; align-items:center; gap:0.85rem; padding:0.85rem 1.1rem;
@@ -58,7 +120,8 @@ if _total_novos > 0:
                     {_total_novos} ticket{"s" if _total_novos > 1 else ""} aguardando triagem
                 </div>
                 <div style="color:rgba(255,255,255,0.65); font-size:0.85rem; margin-top:0.15rem;">
-                    {_total_novos} demanda{"s" if _total_novos > 1 else ""} com status <strong style="color:#FFFFFF;">Novo</strong>
+                    {_total_novos} demanda{"s" if _total_novos > 1 else ""} com status
+                    <strong style="color:#FFFFFF;">Novo</strong>
                     {_label_filial} ainda não foram assumidas. Acesse o Kanban para triar.
                 </div>
             </div>
@@ -71,7 +134,6 @@ if _total_novos > 0:
         unsafe_allow_html=True,
     )
 
-
 st.markdown(
     """
     <div style="padding:1.5rem 0 0.5rem;">
@@ -79,7 +141,8 @@ st.markdown(
                     text-transform:uppercase; letter-spacing:0.04em; color:#FFFFFF; line-height:1.05;">
             CENTRAL INTEGRADA DE <span style="color:#2DC5B4;">DEMANDAS</span>
         </div>
-        <p style="color:rgba(255,255,255,0.5); margin-top:0.35rem; font-size:0.9rem; letter-spacing:0.04em; text-transform:uppercase;">
+        <p style="color:rgba(255,255,255,0.5); margin-top:0.35rem; font-size:0.9rem;
+                  letter-spacing:0.04em; text-transform:uppercase;">
             Sistema Operacional &nbsp;·&nbsp; Dias+ Logística
         </p>
     </div>

@@ -384,6 +384,59 @@ hr {
 """
 
 
+def verificar_sessao():
+    """Interrompe a página se o usuário não estiver autenticado."""
+    if "usuario_logado" not in st.session_state:
+        st.markdown(
+            """
+            <div style="padding:1.25rem 1.5rem; background:rgba(196,122,119,0.12);
+                        border:1px solid rgba(196,122,119,0.45); border-radius:10px;
+                        text-align:center; margin-top:2rem;">
+                <div style="font-size:1.1rem; font-weight:800; color:#C47A77;
+                             text-transform:uppercase; letter-spacing:0.04em;">
+                    ⚠️ Sessão não iniciada
+                </div>
+                <div style="color:rgba(255,255,255,0.55); font-size:0.88rem; margin-top:0.4rem;">
+                    Faça login para acessar o sistema.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.page_link("app.py", label="← Fazer login")
+        st.stop()
+    return st.session_state.usuario_logado
+
+
+def logout_sidebar():
+    """Exibe card do usuário e botão Sair na sidebar."""
+    usuario = st.session_state.get("usuario_logado")
+    if not usuario:
+        return
+    with st.sidebar:
+        st.markdown(
+            f"""
+            <div style="padding:0.75rem 1rem; background:rgba(45,197,180,0.08);
+                        border:1px solid rgba(45,197,180,0.25); border-radius:10px;
+                        margin-bottom:0.5rem;">
+                <div style="color:rgba(255,255,255,0.5); font-size:0.68rem;
+                             text-transform:uppercase; letter-spacing:0.05em;">Sessão ativa</div>
+                <div style="color:#FFFFFF; font-weight:700; font-size:0.95rem; margin-top:0.15rem;">
+                    {usuario['nome']}</div>
+                <div style="color:rgba(255,255,255,0.5); font-size:0.8rem; margin-top:0.1rem;">
+                    🏢 {usuario['filial_base']}
+                    &nbsp;·&nbsp;
+                    <span style="color:#2DC5B4; font-weight:600;">{usuario['nivel_acesso']}</span>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button("🚪 Sair", use_container_width=True, type="secondary", key="btn_logout"):
+            del st.session_state["usuario_logado"]
+            st.rerun()
+
+
 def aplicar_tema():
     """Injeta identidade visual Dias+ no app Streamlit."""
     st.markdown(_CSS, unsafe_allow_html=True)

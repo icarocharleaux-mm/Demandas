@@ -1,7 +1,7 @@
 from datetime import datetime
 from sqlalchemy.orm import Session
 from database.conexao import SessionLocal, Demanda, LogInteracao, Usuario
-import hashlib
+import bcrypt
 from database.conexao import Usuario
 
 # Dicionário auxiliar para mapear as siglas das filiais
@@ -182,17 +182,14 @@ def listar_demandas_por_filial(db: Session, filial: str = None):
     return query.order_by(Demanda.data_abertura.desc()).all()
 
 def criptografar_senha(senha: str) -> str:
-    """Transforma a senha em texto limpo num hash seguro SHA-256."""
-    return hashlib.sha256(senha.encode()).hexdigest()
+    """Hash bcrypt com salt único por senha (substitui SHA-256 anterior)."""
+    return bcrypt.hashpw(senha.encode(), bcrypt.gensalt()).decode()
 
 def verificar_login(db: Session, email: str, senha_pura: str):
-    """Verifica se o utilizador existe e se a senha coincide."""
-    senha_criptografada = criptografar_senha(senha_pura)
-    
-    # Procura o funcionário pelo e-mail e pela senha criptografada
+    """Busca o usuário pelo e-mail e verifica a senha com bcrypt.checkpw."""
     usuario = db.query(Usuario).filter(
-        Usuario.email == email.strip().lower(),
-        Usuario.senha_hash == senha_criptografada
+        Usuario.email == email.strip().lower()
     ).first()
-    
-    return usuario
+    if usuario and bcrypt.checkpw(senha_pura.encode(), usuario.senha_hash.encode()):
+        return usuario
+    return None

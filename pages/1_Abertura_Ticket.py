@@ -4,11 +4,12 @@ import os
 
 from database.conexao import SessionLocal
 from database.operacoes_crud import criar_demanda
-from utils.tema import aplicar_tema, OPCOES_FILIAIS, OPCOES_CATEGORIAS
+from utils.tema import aplicar_tema, verificar_sessao, logout_sidebar, OPCOES_FILIAIS, OPCOES_CATEGORIAS
 from utils.notificacoes import disparar_notificacao_async
 
 st.set_page_config(page_title="Nova Demanda | Dias+", page_icon="📝", layout="centered")
 aplicar_tema()
+logout_sidebar()
 
 st.markdown(
     """
@@ -25,15 +26,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-if "usuario_logado" not in st.session_state:
-    st.session_state.usuario_logado = {
-        "id": 1,
-        "nome": "Icaro Nascimento",
-        "filial_base": "Praia Grande",
-        "nivel_acesso": "Gestor",
-    }
-
-usuario = st.session_state.usuario_logado
+usuario = verificar_sessao()
 
 st.markdown(
     f"""
@@ -106,8 +99,22 @@ with st.form("form_nova_demanda", clear_on_submit=True):
 
     btn_submit = st.form_submit_button("Gerar Ticket", type="primary", use_container_width=True)
 
+_TIPOS_PERMITIDOS = {"pdf", "jpg", "jpeg", "png", "xlsx", "xls", "docx", "doc"}
+_TAMANHO_MAX_MB   = 5
+
 if btn_submit:
-    if not descricao.strip():
+    erros_upload = []
+    for arq in (anexos or []):
+        ext = arq.name.rsplit(".", 1)[-1].lower() if "." in arq.name else ""
+        if ext not in _TIPOS_PERMITIDOS:
+            erros_upload.append(f"Tipo de arquivo não permitido: <b>.{ext}</b>")
+        elif arq.size > _TAMANHO_MAX_MB * 1024 * 1024:
+            erros_upload.append(f"<b>{arq.name}</b> excede o limite de {_TAMANHO_MAX_MB} MB")
+
+    if erros_upload:
+        for msg in erros_upload:
+            st.error(msg)
+    elif not descricao.strip():
         st.error("⚠️ A descrição detalhada é obrigatória!")
     else:
         with st.spinner("Registrando demanda no banco de dados..."):

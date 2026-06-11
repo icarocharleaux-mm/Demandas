@@ -266,7 +266,7 @@ def enviar_email_novo_ticket(ticket: Demanda, nome_solicitante: str) -> None:
 
             <!-- CTA -->
             <div style="text-align:center;margin-bottom:8px;">
-              <a href="#"
+              <a href="https://demandas-production-044b.up.railway.app"
                  style="display:inline-block;background:linear-gradient(135deg,#2DC5B4,#1A8090);
                         color:#FFFFFF;font-weight:700;text-decoration:none;border-radius:8px;
                         padding:12px 32px;font-size:13px;letter-spacing:1px;text-transform:uppercase;">
@@ -298,7 +298,7 @@ def enviar_email_novo_ticket(ticket: Demanda, nome_solicitante: str) -> None:
 
     try:
         _enviar(msg)
-        print(f"[EMAIL] Novo ticket {ticket.id_ticket} notificado → {email_destino}")
+        print(f"[EMAIL] Novo ticket {ticket.id_ticket} notificado → {', '.join(destinatarios)}")
     except Exception as e:
         print(f"[EMAIL] Falha ao notificar novo ticket {ticket.id_ticket}: {e}")
 
@@ -319,7 +319,10 @@ def disparar_notificacao_async(ticket: Demanda, nome_solicitante: str) -> None:
 def enviar_email_alerta(ticket: Demanda) -> None:
     """Notifica sobre ticket com SLA estourado (chamada pelo job agendado)."""
 
-    email_destino = MAPA_RESPONSAVEIS.get(ticket.categoria, EMAIL_FALLBACK)
+    contatos      = MAPA_FILIAL_CONTATOS.get(ticket.filial_origem, {})
+    email_gestor  = contatos.get("gestor") or EMAIL_FALLBACK
+    email_rt      = contatos.get("rt")
+    email_destino = ", ".join(filter(None, [email_gestor, email_rt]))
     prazo_str     = ticket.prazo.strftime("%d/%m/%Y") if ticket.prazo else "—"
 
     msg = MIMEMultipart("alternative")

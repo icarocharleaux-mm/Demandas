@@ -5,10 +5,31 @@ import numpy as np
 from datetime import datetime
 
 from database.conexao import engine
-from utils.tema import aplicar_tema, layout_plotly, PALETA_PLOTLY
+from utils.tema import aplicar_tema, verificar_sessao, logout_sidebar, layout_plotly, PALETA_PLOTLY
 
 st.set_page_config(page_title="Painel Gerencial | Dias+", page_icon="📊", layout="wide")
 aplicar_tema()
+logout_sidebar()
+_usuario = verificar_sessao()
+
+if _usuario["nivel_acesso"] not in ("Gestor", "Admin"):
+    st.markdown(
+        """
+        <div style="padding:1.25rem 1.5rem; background:rgba(196,122,119,0.12);
+                    border:1px solid rgba(196,122,119,0.45); border-radius:10px; margin-top:1rem;">
+            <div style="font-size:1.1rem; font-weight:800; color:#C47A77;
+                         text-transform:uppercase; letter-spacing:0.04em;">
+                ⛔ Acesso Restrito
+            </div>
+            <div style="color:rgba(255,255,255,0.6); font-size:0.9rem; margin-top:0.4rem;">
+                Esta área é exclusiva para <strong>Gestores</strong> e <strong>Administradores</strong>.
+                Entre em contato com seu gestor para solicitar acesso.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.stop()
 
 st.markdown(
     """

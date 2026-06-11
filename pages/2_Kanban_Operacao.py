@@ -3,19 +3,12 @@ from datetime import datetime
 
 from database.conexao import SessionLocal
 from database.operacoes_crud import atualizar_status_demanda, listar_demandas_por_filial
-from utils.tema import aplicar_tema, OPCOES_FILIAIS
+from utils.tema import aplicar_tema, verificar_sessao, logout_sidebar, OPCOES_FILIAIS
 
 st.set_page_config(page_title="Kanban | Dias+", page_icon="📋", layout="wide")
 aplicar_tema()
-
-if "usuario_logado" not in st.session_state:
-    st.session_state.usuario_logado = {
-        "id": 1,
-        "nome": "Icaro Nascimento",
-        "filial_base": "Praia Grande",
-        "nivel_acesso": "Gestor",
-    }
-usuario = st.session_state.usuario_logado
+logout_sidebar()
+usuario = verificar_sessao()
 
 st.markdown(
     """
