@@ -2,8 +2,9 @@ import streamlit as st
 from datetime import datetime
 
 from database.conexao import SessionLocal
-from database.operacoes_crud import atualizar_status_demanda, listar_demandas_por_filial
+from database.operacoes_crud import atualizar_status_demanda, atualizar_setor_demanda, listar_demandas_por_filial
 from utils.tema import aplicar_tema, verificar_sessao, logout_sidebar, OPCOES_FILIAIS
+from utils.notificacoes import disparar_notificacao_setor_async, OPCOES_SETORES
 
 st.set_page_config(page_title="Kanban | Dias+", page_icon="📋", layout="wide")
 aplicar_tema()
@@ -113,6 +114,8 @@ for index, (nome_status, lista_tickets) in enumerate(colunas_kanban.items()):
 
                 with st.expander("Ações e Atualização"):
                     st.write(f"**Descrição:** {ticket.descricao[:100]}...")
+                    if ticket.setor_destino:
+                        st.caption(f"📬 Setor atual: **{ticket.setor_destino}**")
 
                     with st.form(key=f"form_{ticket.id_ticket}"):
                         novo_status = st.selectbox(
@@ -144,3 +147,42 @@ for index, (nome_status, lista_tickets) in enumerate(colunas_kanban.items()):
                                     st.warning(msg)
                             finally:
                                 db_update.close()
+
+                    if usuario["nivel_acesso"] in ("Gestor", "Admin"):
+                        with st.form(key=f"form_setor_{ticket.id_ticket}"):
+                            st.markdown(
+                                "<small style='color:rgba(255,255,255,0.5);text-transform:uppercase;"
+                                "letter-spacing:0.05em;font-size:0.7rem;'>Reatribuir para outro setor</small>",
+                                unsafe_allow_html=True,
+                            )
+                            idx_setor = (
+                                OPCOES_SETORES.index(ticket.setor_destino)
+                                if ticket.setor_destino in OPCOES_SETORES
+                                else 0
+                            )
+                            novo_setor = st.selectbox("Novo setor:", OPCOES_SETORES, index=idx_setor)
+                            motivo = st.text_input("Motivo da reatribuição", placeholder="Ex: Encaminhado ao setor correto")
+                            btn_reatribuir = st.form_submit_button("Reatribuir", use_container_width=True)
+
+                            if btn_reatribuir:
+                                if novo_setor == ticket.setor_destino:
+                                    st.warning("O setor selecionado já é o atual.")
+                                else:
+                                    db_setor = SessionLocal()
+                                    try:
+                                        sucesso, msg = atualizar_setor_demanda(
+                                            db=db_setor,
+                                            id_ticket=ticket.id_ticket,
+                                            usuario_id=usuario["id"],
+                                            novo_setor=novo_setor,
+                                            comentario=motivo,
+                                        )
+                                        if sucesso:
+                                            ticket.setor_destino = novo_setor
+                                            disparar_notificacao_setor_async(ticket, usuario["nome"])
+                                            st.success(f"Reatribuído para {novo_setor}! Setor notificado por e-mail.")
+                                            st.rerun()
+                                        else:
+                                            st.warning(msg)
+                                    finally:
+                                        db_setor.close()

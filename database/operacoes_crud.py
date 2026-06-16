@@ -172,6 +172,29 @@ def atualizar_status_demanda(db: Session, id_ticket: str, usuario_id: int, novo_
         print(f"Erro ao atualizar demanda: {e}")
         return False, "Falha na transação do banco de dados."
 
+def atualizar_setor_demanda(db: Session, id_ticket: str, usuario_id: int, novo_setor: str, comentario: str = ""):
+    try:
+        demanda = db.query(Demanda).filter(Demanda.id_ticket == id_ticket).first()
+        if not demanda:
+            return False, "Ticket não encontrado."
+
+        setor_anterior = demanda.setor_destino or "Não definido"
+        demanda.setor_destino = novo_setor
+        demanda.status = "Novo"
+
+        acao = f"Ticket reatribuído de '{setor_anterior}' para '{novo_setor}'. Status redefinido para Novo."
+        if comentario:
+            acao += f" Motivo: {comentario}"
+
+        db.add(LogInteracao(id_ticket=id_ticket, usuario_id=usuario_id, acao_realizada=acao))
+        db.commit()
+        return True, "Setor atualizado com sucesso."
+    except Exception as e:
+        db.rollback()
+        print(f"Erro ao atualizar setor: {e}")
+        return False, "Falha na transação do banco de dados."
+
+
 def listar_demandas_por_filial(db: Session, filial: str = None):
     """
     Busca as demandas. Se a filial for passada, filtra por ela (visão Operador).
