@@ -90,6 +90,20 @@ _GERENTE_REGIONAL: dict[str, str] = {
 # Fallback quando a filial não estiver no mapa
 EMAIL_FALLBACK = "gestao@diaslog.com.br"
 
+# ============================================================
+# ROTEAMENTO POR SETOR DESTINATÁRIO
+# ============================================================
+MAPA_SETOR_CONTATOS: dict[str, list[str]] = {
+    "TI / Suporte Técnico": ["clayton.reis@diaslog.com.br", "suporte.ti@diaslog.com.br"],
+    "RH":                   ["christiane.nery@diaslog.com.br"],
+    "Financeiro":           ["beatriz.ribeiro@diaslog.com.br", "marina.nava@diaslog.com.br"],
+    "Jurídico":             ["adelia.juridico@mddelivery.com.br"],
+    "Qualidade":            ["cadastro.qualidade@diaslog.com.br"],
+    "Planejamento":         ["rodrigo.dupim@diaslog.com.br"],
+}
+
+OPCOES_SETORES = list(MAPA_SETOR_CONTATOS.keys())
+
 
 # ============================================================
 # HELPERS DE ENVIO SMTP
@@ -416,6 +430,150 @@ def enviar_email_alerta(ticket: Demanda) -> None:
         print(f"[EMAIL] Alerta SLA enviado para {ticket.id_ticket}")
     except Exception as e:
         print(f"[EMAIL] Falha no alerta SLA {ticket.id_ticket}: {e}")
+
+
+# ============================================================
+# FUNÇÃO 3 — Notificação ao setor destinatário
+# ============================================================
+def enviar_email_setor(ticket: Demanda, nome_solicitante: str) -> None:
+    """Notifica o setor escolhido pelo solicitante sobre a nova demanda."""
+    if not ticket.setor_destino:
+        return
+
+    destinatarios = MAPA_SETOR_CONTATOS.get(ticket.setor_destino, [])
+    if not destinatarios:
+        return
+
+    prazo_str    = ticket.prazo.strftime("%d/%m/%Y") if ticket.prazo else "Não definido"
+    abertura_str = ticket.data_abertura.strftime("%d/%m/%Y %H:%M") if ticket.data_abertura else "—"
+
+    msg = MIMEMultipart("alternative")
+    msg["From"]    = SMTP_USER
+    msg["To"]      = ", ".join(destinatarios)
+    msg["Subject"] = f"[Dias+] Nova solicitação para {ticket.setor_destino} — {ticket.id_ticket}"
+
+    corpo_html = f"""
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0"
+             style="max-width:600px;width:100%;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.12);">
+
+        <tr>
+          <td style="background:linear-gradient(135deg,#0B2E3A 0%,#1D7A8A 100%);padding:28px 32px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td>
+                  <span style="font-size:26px;font-weight:900;text-transform:uppercase;color:#FFFFFF;letter-spacing:2px;">DIAS</span>
+                  <span style="font-size:26px;font-weight:900;color:#2DC5B4;">+</span>
+                  <div style="font-size:11px;color:rgba(255,255,255,0.55);letter-spacing:3px;text-transform:uppercase;margin-top:2px;">
+                    Central de Demandas
+                  </div>
+                </td>
+                <td align="right">
+                  <span style="background:#2DC5B4;color:#FFFFFF;font-weight:700;border-radius:999px;
+                               padding:5px 16px;font-size:12px;letter-spacing:1px;text-transform:uppercase;">
+                    NOVA SOLICITAÇÃO
+                  </span>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="background:#FFFFFF;padding:28px 32px;">
+            <p style="margin:0 0 16px;font-size:15px;color:#4a5568;">
+              O setor <strong style="color:#0B3040;">{ticket.setor_destino}</strong> recebeu uma nova solicitação
+              de <strong>{nome_solicitante}</strong> ({ticket.filial_origem}).
+              Acesse o painel para visualizar e tratar a demanda.
+            </p>
+
+            <div style="background:linear-gradient(135deg,#0B2E3A,#1D7A8A);border-radius:10px;
+                        padding:16px 20px;margin-bottom:20px;">
+              <div style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;
+                          letter-spacing:2px;margin-bottom:4px;">ID do Ticket</div>
+              <div style="font-size:22px;font-weight:900;color:#2DC5B4;letter-spacing:1px;">
+                {ticket.id_ticket}
+              </div>
+            </div>
+
+            <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:20px;">
+              <tr>
+                <td style="padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;
+                            font-size:12px;color:#718096;text-transform:uppercase;letter-spacing:1px;font-weight:600;width:38%;">
+                  Filial Origem</td>
+                <td style="padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;
+                            font-size:14px;color:#0B3040;font-weight:600;">{ticket.filial_origem}</td>
+              </tr>
+              <tr>
+                <td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;
+                            font-size:12px;color:#718096;text-transform:uppercase;letter-spacing:1px;font-weight:600;">
+                  Categoria</td>
+                <td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;
+                            font-size:14px;color:#0B3040;">{ticket.categoria}</td>
+              </tr>
+              <tr>
+                <td style="padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;
+                            font-size:12px;color:#718096;text-transform:uppercase;letter-spacing:1px;font-weight:600;">
+                  Prioridade</td>
+                <td style="padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;
+                            font-size:14px;color:#0B3040;">{ticket.prioridade}</td>
+              </tr>
+              <tr>
+                <td style="padding:10px 14px;font-size:12px;color:#718096;
+                            text-transform:uppercase;letter-spacing:1px;font-weight:600;">
+                  Prazo Desejado</td>
+                <td style="padding:10px 14px;font-size:14px;color:#0B3040;">{prazo_str}</td>
+              </tr>
+            </table>
+
+            <div style="background:#f0faf9;border-left:4px solid #2DC5B4;border-radius:0 8px 8px 0;
+                        padding:14px 16px;margin-bottom:24px;">
+              <div style="font-size:11px;color:#2DC5B4;text-transform:uppercase;letter-spacing:1.5px;
+                          font-weight:700;margin-bottom:6px;">Descrição</div>
+              <div style="font-size:14px;color:#4a5568;line-height:1.6;">{ticket.descricao}</div>
+            </div>
+
+            <div style="text-align:center;">
+              <a href="https://demandas-production-044b.up.railway.app"
+                 style="display:inline-block;background:linear-gradient(135deg,#2DC5B4,#1A8090);
+                        color:#FFFFFF;font-weight:700;text-decoration:none;border-radius:8px;
+                        padding:12px 32px;font-size:13px;letter-spacing:1px;text-transform:uppercase;">
+                Acessar o Painel
+              </a>
+            </div>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="background:#0B3040;padding:16px 32px;text-align:center;">
+            <div style="font-size:11px;color:rgba(255,255,255,0.45);letter-spacing:1px;">
+              Mensagem automática · Central de Demandas Dias+ · diaslog.com.br
+            </div>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
+"""
+    msg.attach(MIMEText(corpo_html, "html", "utf-8"))
+    try:
+        _enviar(msg)
+        print(f"[EMAIL] Setor {ticket.setor_destino} notificado → {', '.join(destinatarios)}")
+    except Exception as e:
+        print(f"[EMAIL] Falha ao notificar setor {ticket.setor_destino}: {e}")
+
+
+def disparar_notificacao_setor_async(ticket: Demanda, nome_solicitante: str) -> None:
+    t = threading.Thread(target=enviar_email_setor, args=(ticket, nome_solicitante), daemon=True)
+    t.start()
 
 
 def varrer_base_e_notificar() -> None:

@@ -93,12 +93,12 @@ def gerar_id_ticket(db: Session, filial_nome: str) -> str:
     # Formata a sequência para ter sempre 3 dígitos (ex: 001, 002)
     return f"{prefixo}{nova_sequencia:03d}"
 
-def criar_demanda(db: Session, solicitante_id: int, filial: str, categoria: str, prioridade: str, descricao: str, prazo: datetime = None):
+def criar_demanda(db: Session, solicitante_id: int, filial: str, categoria: str, prioridade: str, descricao: str, prazo: datetime = None, setor_destino: str = None):
     """
     Cria uma nova demanda e registra o log inicial em uma transação atômica.
     """
     novo_id = gerar_id_ticket(db, filial)
-    
+
     try:
         # 1. Cria o objeto da Demanda
         nova_demanda = Demanda(
@@ -109,6 +109,7 @@ def criar_demanda(db: Session, solicitante_id: int, filial: str, categoria: str,
             prioridade=prioridade,
             descricao=descricao,
             prazo=prazo,
+            setor_destino=setor_destino,
             status="Novo"
         )
         db.add(nova_demanda)

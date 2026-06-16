@@ -51,6 +51,7 @@ class Demanda(Base):
     prioridade = Column(String(20), nullable=False)    # Ex: Baixa, Média, Alta, Crítica
     status = Column(String(30), default="Novo", nullable=False)
     
+    setor_destino = Column(String(60), nullable=True)
     descricao = Column(Text, nullable=False)
     prazo = Column(DateTime, nullable=True)
     data_abertura = Column(DateTime, default=datetime.now)

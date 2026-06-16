@@ -5,7 +5,7 @@ import os
 from database.conexao import SessionLocal
 from database.operacoes_crud import criar_demanda
 from utils.tema import aplicar_tema, verificar_sessao, logout_sidebar, OPCOES_FILIAIS, OPCOES_CATEGORIAS
-from utils.notificacoes import disparar_notificacao_async
+from utils.notificacoes import disparar_notificacao_async, disparar_notificacao_setor_async, OPCOES_SETORES
 
 st.set_page_config(page_title="Nova Demanda | Dias+", page_icon="📝", layout="centered")
 aplicar_tema()
@@ -72,6 +72,12 @@ with st.form("form_nova_demanda", clear_on_submit=True):
             OPCOES_CATEGORIAS,
         )
 
+        setor_destino = st.selectbox(
+            "Setor Destinatário *",
+            OPCOES_SETORES,
+            help="Setor responsável por tratar esta solicitação. Um e-mail será enviado automaticamente.",
+        )
+
     with col2:
         prioridade = st.selectbox(
             "Nível de Prioridade *",
@@ -128,6 +134,7 @@ if btn_submit:
                     prioridade=prioridade,
                     descricao=descricao,
                     prazo=prazo_desejado,
+                    setor_destino=setor_destino,
                 )
 
                 if nova_demanda:
@@ -140,12 +147,12 @@ if btn_submit:
                             with open(caminho_arquivo, "wb") as f:
                                 f.write(arquivo.getbuffer())
 
-                    # Dispara e-mail ao responsável em background (não bloqueia o UI)
                     disparar_notificacao_async(nova_demanda, usuario["nome"])
+                    disparar_notificacao_setor_async(nova_demanda, usuario["nome"])
 
                     st.success(
                         f"✅ Demanda registrada com sucesso! **Ticket: {nova_demanda.id_ticket}**  \n"
-                        f"📧 Responsável de *{nova_demanda.categoria}* foi notificado por e-mail."
+                        f"📧 Setor *{nova_demanda.setor_destino}* foi notificado por e-mail."
                     )
                     st.balloons()
                 else:
